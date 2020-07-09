@@ -3,8 +3,8 @@
 #  df0.py - very basic dataflow analysis for Python.
 #
 #  Assumptions:
-#   - Variables are dynamically typed.
-#   - Functions are polymorphed.
+#   - Variables can have multiple types.
+#   - Functions are polymorphic.
 #   - The same types for function arguments = the same behavior.
 #     (so it can be cached.)
 #
