@@ -21,6 +21,7 @@
 #   - Builtin functions.
 #   - Module imports.
 #   - Fancy control statements (yield, etc.)
+#   - Efficiency. (All the values are copied every time.)
 #
 
 
@@ -31,7 +32,7 @@ import ast
 ##
 def optype(value1, op, value2):
     # XXX
-    return value1
+    return value1.copy()
 
 
 ##  Ref: unique identifier for variables.
@@ -153,7 +154,7 @@ class Function:
             bb = self.bbs[key]
         else:
             # Not cached.
-            values = values.copy()
+            values = { k:v.copy() for (k,v) in values.items() }
             for (arg,value) in zip(self.tree.args.args, args):
                 ref = self.space.lookup(arg.arg)
                 if ref not in values:
@@ -182,7 +183,7 @@ class BBlock:
 
     def __init__(self, space, values):
         self.space = space
-        self.values = values.copy()
+        self.values = { k:v.copy() for (k,v) in values.items() }
         return
 
     def merge(self, values1, values2):
@@ -190,12 +191,12 @@ class BBlock:
             if ref in self.values:
                 self.values[ref].update(value)
             else:
-                self.values[ref] = value
+                self.values[ref] = value.copy()
         for (ref,value) in values2.items():
             if ref in self.values:
                 self.values[ref].update(value)
             else:
-                self.values[ref] = value
+                self.values[ref] = value.copy()
         return
 
     def eval(self, tree):
@@ -216,7 +217,7 @@ class BBlock:
             for func in self.eval(tree.func):
                 if isinstance(func, Function):
                     args = [ self.eval(arg1) for arg1 in tree.args ]
-                    value = func.apply(args, self.values.copy())
+                    value = func.apply(args, self.values)
                     values.update(value)
             return values
         else:
