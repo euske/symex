@@ -7,6 +7,7 @@
 #   - Functions are polymorphic.
 #   - The same types for function arguments = the same behavior.
 #     (so it can be cached.)
+#   - Global variables have constant types.
 #
 #  Supported:
 #   - Nested scopes.
