@@ -69,6 +69,13 @@ class Namespace:
             ref = self.refs[name] = Ref(self, name)
         return ref
 
+    def add_global(self, name):
+        space = self
+        while space.parent is not None:
+            space = space.parent
+        self.refs[name] = space.add(name)
+        return
+
     def lookup(self, name):
         space = self
         while space is not None:
@@ -106,6 +113,9 @@ class Namespace:
                 self.add(t.id)
         elif isinstance(tree, ast.AugAssign):
             self.add(tree.target.id)
+        elif isinstance(tree, ast.Global):
+            for name in tree.names:
+                self.add_global(name)
         elif isinstance(tree, ast.Expr):
             pass
         elif isinstance(tree, ast.Return):
@@ -268,6 +278,8 @@ class BBlock:
             value2 = self.eval(tree.value)
             ref = self.space.lookup(tree.target.id)
             self.values[ref] = optype(value1, tree.op, value2)
+        elif isinstance(tree, ast.Global):
+            pass
         elif isinstance(tree, ast.Expr):
             value = self.eval(tree.value)
         elif isinstance(tree, ast.Return):
