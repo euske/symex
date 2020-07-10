@@ -34,6 +34,17 @@ def optype(value1, op, value2):
     return value2
 
 
+##  idtree: returns a tree identifier.
+##
+def idtree(tree):
+    if isinstance(tree, ast.FunctionDef):
+        return f'def:{tree.name}:{tree.lineno}:{tree.col_offset}'
+    elif isinstance(tree, ast.Lambda):
+        return f'lambda:{tree.lineno}:{tree.col_offset}'
+    else:
+        raise ValueError(tree)
+
+
 ##  Ref: unique identifier for variables.
 ##
 class Ref:
@@ -95,8 +106,9 @@ class Namespace:
             for t in tree.args.args:
                 space.add(t.arg)
             space.build(tree.body)
-            ref = self.add(tree.name)
-            Function.register(ref, space, tree)
+            self.add(tree.name)
+            func = Function(space, tree)
+            Function.register(tree, func)
         elif isinstance(tree, ast.If):
             self.build(tree.body)
             self.build(tree.orelse)
@@ -137,13 +149,13 @@ class Function:
     functions = {}
 
     @classmethod
-    def register(klass, ref, space, tree):
-        klass.functions[ref] = Function(space, tree)
+    def register(klass, tree, func):
+        klass.functions[idtree(tree)] = func
         return
 
     @classmethod
-    def get(klass, ref):
-        return klass.functions[ref]
+    def get(klass, tree):
+        return klass.functions[idtree(tree)]
 
     def __init__(self, space, tree):
         self.space = space
@@ -152,7 +164,7 @@ class Function:
         return
 
     def __repr__(self):
-        return f'<Function {self.tree.name}>'
+        return f'<Function {idtree(self.tree)}>'
 
     def apply(self, args, envs):
         #print(f'apply: {self}({args})')
@@ -166,7 +178,10 @@ class Function:
             for (arg,value) in zip(self.tree.args.args, args):
                 ref = self.space.lookup(arg.arg)
                 bb.values[ref] = value.copy()
-            bb.perform(self.tree.body)
+            if isinstance(self.tree, ast.Lambda):
+                bb.retval = bb.eval(self.tree.body)
+            else:
+                bb.perform(self.tree.body)
             self.bbs[key] = bb
         return bb.retval
 
@@ -233,6 +248,13 @@ class BBlock:
                     value = func.apply(args, (self.values,)+self.envs)
                     values.update(value)
             return values
+        elif isinstance(tree, ast.Lambda):
+            space = Namespace(idtree(tree), self.space)
+            for t in tree.args.args:
+                space.add(t.arg)
+            func = Function(space, tree)
+            Function.register(tree, func)
+            return { func }
         else:
             raise SyntaxError(tree)
 
@@ -244,7 +266,7 @@ class BBlock:
     def perform1(self, tree):
         if isinstance(tree, ast.FunctionDef):
             ref = self.space.lookup(tree.name)
-            self.values[ref] = { Function.get(ref) }
+            self.values[ref] = { Function.get(tree) }
         elif isinstance(tree, ast.If):
             envs = (self.values,)+self.envs
             bb1 = BBlock(self.space, envs)
@@ -313,7 +335,9 @@ def f(x, y):
         print('baz')
     return z
 
-print(f(3,4))
+g = f
+h = lambda x,y: g(x+1,y)
+print(h(3,4))
 '''
 tree = ast.parse(source)
 root = Namespace('')
