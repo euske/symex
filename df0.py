@@ -21,7 +21,6 @@
 #   - Builtin functions.
 #   - Module imports.
 #   - Fancy control statements (yield, etc.)
-#   - Efficiency. (All the values are copied every time.)
 #
 
 
@@ -32,7 +31,7 @@ import ast
 ##
 def optype(value1, op, value2):
     # XXX
-    return value1.copy()
+    return value2
 
 
 ##  Ref: unique identifier for variables.
@@ -163,11 +162,10 @@ class Function:
             bb = self.bbs[key]
         else:
             # Not cached.
-            values = {}
+            bb = BBlock(self.space, envs)
             for (arg,value) in zip(self.tree.args.args, args):
                 ref = self.space.lookup(arg.arg)
-                values[ref] = value.copy()
-            bb = BBlock(self.space, envs, values)
+                bb.values[ref] = value.copy()
             bb.perform(self.tree.body)
             self.bbs[key] = bb
         return bb.retval
@@ -187,10 +185,10 @@ class Function:
 ##
 class BBlock:
 
-    def __init__(self, space, envs, values=None):
+    def __init__(self, space, envs):
         self.space = space
         self.envs = envs
-        self.values = values or {}
+        self.values = {}
         self.retval = None
         return
 
