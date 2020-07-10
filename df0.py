@@ -39,8 +39,6 @@ def optype(value1, op, value2):
 ##
 class Ref:
 
-    RETURN = '_RETURN' # Special variable for a return value.
-
     def __init__(self, space, name):
         self.space = space
         self.name = name
@@ -111,7 +109,7 @@ class Namespace:
         elif isinstance(tree, ast.Expr):
             pass
         elif isinstance(tree, ast.Return):
-            self.add(Ref.RETURN)
+            pass
         elif isinstance(tree, ast.Break):
             pass
         elif isinstance(tree, ast.Continue):
@@ -147,24 +145,22 @@ class Function:
     def __repr__(self):
         return f'<Function {self.tree.name}>'
 
-    def apply(self, args, values):
+    def apply(self, args, envs):
+        #print(f'apply: {self}({args})')
         key = tuple(map(repr, args))
         if key in self.bbs:
             # Cached.
             bb = self.bbs[key]
         else:
             # Not cached.
-            values = { k:v.copy() for (k,v) in values.items() }
+            values = {}
             for (arg,value) in zip(self.tree.args.args, args):
                 ref = self.space.lookup(arg.arg)
-                if ref not in values:
-                    values[ref] = set()
-                values[ref].update(value)
-            bb = BBlock(self.space, values)
+                values[ref] = value.copy()
+            bb = BBlock(self.space, envs, values)
             bb.perform(self.tree.body)
             self.bbs[key] = bb
-        ref = self.space.lookup(Ref.RETURN)
-        return bb.values.get(ref)
+        return bb.retval
 
     def dump(self):
         print(f'== {self} ==')
@@ -181,9 +177,11 @@ class Function:
 ##
 class BBlock:
 
-    def __init__(self, space, values):
+    def __init__(self, space, envs, values=None):
         self.space = space
-        self.values = { k:v.copy() for (k,v) in values.items() }
+        self.envs = envs
+        self.values = values or {}
+        self.retval = None
         return
 
     def merge(self, values1, values2):
@@ -202,7 +200,14 @@ class BBlock:
     def eval(self, tree):
         if isinstance(tree, ast.Name):
             ref = self.space.lookup(tree.id)
-            return self.values.get(ref)
+            if ref in self.values:
+                return self.values[ref]
+            else:
+                for env in self.envs:
+                    if ref in env:
+                        return env[ref]
+                # Undefined value.
+                raise ValueError(f'Undefined: {ref}')
         elif isinstance(tree, ast.Constant):
             return { type(tree.value) }
         elif isinstance(tree, ast.BinOp):
@@ -217,7 +222,7 @@ class BBlock:
             for func in self.eval(tree.func):
                 if isinstance(func, Function):
                     args = [ self.eval(arg1) for arg1 in tree.args ]
-                    value = func.apply(args, self.values)
+                    value = func.apply(args, (self.values,)+self.envs)
                     values.update(value)
             return values
         else:
@@ -233,21 +238,24 @@ class BBlock:
             ref = self.space.lookup(tree.name)
             self.values[ref] = { Function.get(ref) }
         elif isinstance(tree, ast.If):
-            bb1 = BBlock(self.space, self.values)
+            envs = (self.values,)+self.envs
+            bb1 = BBlock(self.space, envs)
             bb1.perform(tree.body)
-            bb2 = BBlock(self.space, self.values)
+            bb2 = BBlock(self.space, envs)
             bb2.perform(tree.orelse)
             self.merge(bb1.values, bb2.values)
         elif isinstance(tree, ast.While):
-            bb1 = BBlock(self.space, self.values)
+            envs = (self.values,)+self.envs
+            bb1 = BBlock(self.space, envs)
             bb1.perform(tree.body)
-            bb2 = BBlock(self.space, self.values)
+            bb2 = BBlock(self.space, envs)
             bb2.perform(tree.orelse)
             self.merge(bb1.values, bb2.values)
         elif isinstance(tree, ast.For):
-            bb1 = BBlock(self.space, self.values)
+            envs = (self.values,)+self.envs
+            bb1 = BBlock(self.space, envs)
             bb1.perform(tree.body)
-            bb2 = BBlock(self.space, self.values)
+            bb2 = BBlock(self.space, envs)
             bb2.perform(tree.orelse)
             self.merge(bb1.values, bb2.values)
         elif isinstance(tree, ast.Assign):
@@ -265,8 +273,7 @@ class BBlock:
         elif isinstance(tree, ast.Return):
             if tree.value is not None:
                 value = self.eval(tree.value)
-                ref = self.space.lookup(Ref.RETURN)
-                self.values[ref] = value
+                self.retval = value
         elif isinstance(tree, ast.Break):
             pass
         elif isinstance(tree, ast.Continue):
@@ -301,7 +308,7 @@ print(f(3,4))
 tree = ast.parse(source)
 root = Namespace('')
 root.build(tree.body)
-bb = BBlock(root, {})
+bb = BBlock(root, ())
 bb.perform(tree.body)
 for f in Function.functions.values():
     f.dump()
