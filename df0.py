@@ -173,13 +173,13 @@ class Function:
 
     def apply(self, args, envs):
         #print(f'apply: {self}({args})')
-        key = tuple(map(repr, args))
+        key = repr(args)
         if key in self.bbs:
             # Cached.
             bb = self.bbs[key]
         else:
             # Not cached.
-            bb = BBlock(self.space, envs)
+            bb = self.bbs[key] = BBlock(self.space, envs)
             for (arg,value) in zip(self.tree.args.args, args):
                 ref = self.space.lookup(arg.arg)
                 bb.values[ref] = value.copy()
@@ -187,13 +187,11 @@ class Function:
                 bb.retval = bb.eval(self.tree.body)
             else:
                 bb.perform(self.tree.body)
-            self.bbs[key] = bb
         return bb.retval
 
     def dump(self):
         print(f'== {self} ==')
         for bb in self.bbs.values():
-            d = {}
             for ref in self.space.refs.values():
                 value = bb.values.get(ref)
                 print(f'{ref}: {value}')
