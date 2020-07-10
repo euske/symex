@@ -108,7 +108,7 @@ class Namespace:
             space.build(tree.body)
             self.add(tree.name)
             func = Function(space, tree)
-            Function.register(tree, func)
+            Types.register(tree, func)
         elif isinstance(tree, ast.If):
             self.build(tree.body)
             self.build(tree.orelse)
@@ -142,9 +142,9 @@ class Namespace:
         return
 
 
-##  Function: user defined functions.
+##  Types: user defined types.
 ##
-class Function:
+class Types:
 
     functions = {}
 
@@ -156,6 +156,11 @@ class Function:
     @classmethod
     def get(klass, tree):
         return klass.functions[idtree(tree)]
+
+
+##  Function: user defined functions.
+##
+class Function:
 
     def __init__(self, space, tree):
         self.space = space
@@ -253,7 +258,7 @@ class BBlock:
             for t in tree.args.args:
                 space.add(t.arg)
             func = Function(space, tree)
-            Function.register(tree, func)
+            Types.register(tree, func)
             return { func }
         else:
             raise SyntaxError(tree)
@@ -266,7 +271,7 @@ class BBlock:
     def perform1(self, tree):
         if isinstance(tree, ast.FunctionDef):
             ref = self.space.lookup(tree.name)
-            self.values[ref] = { Function.get(tree) }
+            self.values[ref] = { Types.get(tree) }
         elif isinstance(tree, ast.If):
             envs = (self.values,)+self.envs
             bb1 = BBlock(self.space, envs)
@@ -344,5 +349,5 @@ root = Namespace('')
 root.build(tree.body)
 bb = BBlock(root, ())
 bb.perform(tree.body)
-for f in Function.functions.values():
+for f in Types.functions.values():
     f.dump()
