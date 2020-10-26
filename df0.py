@@ -84,6 +84,21 @@ class Type:
         # XXX
         return value
 
+    def getitem(self, name):
+        # XXX
+        return self
+
+    def setitem(self, name, value):
+        # XXX
+        return
+
+    def getattr(self, name):
+        # XXX
+        return self
+
+    def setattr(self, name, value):
+        # XXX
+        return
 
 class BasicType(Type):
 
@@ -168,19 +183,18 @@ class Namespace:
     def __repr__(self):
         return f'{self.name}'
 
+    def root(self):
+        space = self
+        while space.parent is not None:
+            space = space.parent
+        return space
+
     def add(self, name):
         if name in self.refs:
             ref = self.refs[name]
         else:
             ref = self.refs[name] = Ref(self, name)
         return ref
-
-    def add_global(self, name):
-        space = self
-        while space.parent is not None:
-            space = space.parent
-        self.refs[name] = space.add(name)
-        return
 
     def lookup(self, name):
         space = self
@@ -221,8 +235,9 @@ class Namespace:
         elif isinstance(tree, ast.AugAssign):
             self.add(tree.target.id)
         elif isinstance(tree, ast.Global):
+            space = self.root()
             for name in tree.names:
-                self.add_global(name)
+                self.refs[name] = space.add(name)
         elif isinstance(tree, ast.Expr):
             pass
         elif isinstance(tree, ast.Return):
