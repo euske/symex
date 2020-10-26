@@ -115,6 +115,15 @@ Type.add(bool, BasicType(bool))
 Type.add(float, BasicType(float))
 
 
+## TODO
+#class ListType(Type): pass
+#class DictType(Type): pass
+#class TupleType(Type): pass
+#class ClassType(Type): pass
+#class InstanceType(Type): pass
+#class ModuleType(Type): pass
+
+
 ##  Function: user defined functions.
 ##
 class Function(Type):
